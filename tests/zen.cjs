@@ -1,0 +1,22 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync(require('path').join(__dirname,'../extension.js'),'utf8');
+let state=false,calls=0,notice=0;
+const ctx={zenState:()=>state,sentZen:true,confirmedZen:false,paletteCommand:async()=>{calls++;state=!state;return true},notice:()=>notice++,wait:async()=>{},all:()=>[],visible:()=>true,stroke:()=>{throw Error('unexpected chord')}};
+vm.createContext(ctx);vm.runInContext(src.slice(src.indexOf('  async function zen(on)'),src.indexOf('  function findRoot()')),ctx);
+(async()=>{
+ await ctx.zen(false);assert.equal(calls,0,'already off must never toggle on during exit');
+ state=null;await ctx.zen(false);assert.equal(calls,0);assert.equal(notice,0,'unowned unknown state needs no warning');
+ state=true;await ctx.zen(false);assert.equal(calls,1);assert.equal(state,false);
+ state=false;await ctx.zen(true);assert.equal(calls,2);assert.equal(state,true);
+ await ctx.zen(true);assert.equal(calls,2);
+ state=null;ctx.sentZen=true;ctx.confirmedZen=false;
+ ctx.paletteCommand=async()=>{calls++;return true};
+ const before=calls;await ctx.zen(false);assert.equal(calls,before+1,'unknown DOM still reverses this session entry');
+ await ctx.zen(false);assert.equal(calls,before+1,'exit is not repeated');
+ state=null;await ctx.zen(true);assert.equal(ctx.sentZen,true);
+ await ctx.zen(false);assert.equal(ctx.sentZen,false);
+ const palette=src.slice(src.indexOf('  async function paletteCommand()'),src.indexOf('  async function zen(on)'));
+ assert.ok(!palette.includes('key:"Escape"'));
+ assert.ok(!src.includes('exitFullscreen('));
+ console.log('PASS Zen enter/exit/already-off/unknown state; no synthetic Escape or fullscreen API');
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,3 +1,39 @@
+# 1.1.8
+
+- Fix the 1.1.6–1.1.7 exit regression when themes obscure native Zen state: pair a dispatched entry command with one exit command instead of aborting with an unknown-state notice.
+- Record session ownership only after dispatch; do not repeat an exit or reverse a visibly failed entry.
+- Keep synthetic Escape removed. Desktop fullscreen verification remains pending.
+
+# 1.1.7
+
+- Apply native widget width and scrolling safeguards whenever Gingko is active, regardless of Folio state. Roam full-width negative margins and table footer minimum widths are not Folio-specific.
+- Keep only Folio aside positioning behind Folio detection.
+- Exclude widget internals from the column layout for every theme.
+- Retain 1.1.6 Zen exit safeguards.
+
+# 1.1.6
+
+- Remove synthetic Escape from command-palette fallback; dismiss only the palette overlay, and avoid sending fallback chords while a palette remains open.
+- Do not toggle Zen when already off; do not guess on exit when its state is unknown.
+- Add regression checks for Zen transitions and absence of fullscreen calls. Native macOS fullscreen verification is pending.
+
+# 1.1.5
+
+- Inspect the live TODO page: confirm the kanban outer `.rm-full-width` host adds 116px through a negative margin; the data-table footer has an inline 500px minimum width inside a 375px content area.
+- Reset full-width host margins and constrain the `:q` host and footer; allow pagination controls to wrap.
+- Let the actual kanban column container receive horizontal wheel/touch scrolling.
+- Keep data tables intrinsically wide within their scroll viewport instead of compressing all columns into the card.
+- Audit Folio component CSS and add scoped sizing for quotes, callouts, PDF containers and sliders. Sidebar, calendar, settings and portal styles remain outside this override scope.
+- Automated regression checks pass. Live-page diagnosis completed; the new package still needs live rendering verification after installation.
+
+# 1.1.4
+
+- Automatically scope Folio compatibility to the active Gingko board; respond to stylesheet and appearance changes without polling.
+- Bound text, highlight backgrounds, media and embedded widgets to card width; preserve internal horizontal scrolling for wide widgets.
+- Keep widget-internal rows out of the column layout; retain cross-column native child blocks.
+- Restore normal Folio styling on exit and remove the appearance listener and observer on unload.
+- Validation: automated layout, navigation, drag, mutation, lifecycle and Folio state/scroll tests; live Folio visual verification pending.
+
 # Changelog
 
 ## 1.1.3

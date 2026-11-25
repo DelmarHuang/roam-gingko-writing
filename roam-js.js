@@ -9,6 +9,28 @@ async function startGingko(extensionAPI) {
   const ROW = ".rm-block-main,.rm-block__self";
   const OMIT = ".rm-reference-main,.rm-mentions,.rm-embed-container,.rm-block-ref,.rm-query";
   const EDIT = "textarea.rm-block-input,textarea.rm-block__input,[contenteditable=true]";
+  const WIDE = '.rm-query,.rm-embed-container,.rm-table,.rm-data-table,.rm-data-table__table,.kanban-board,.kanban-column-container,.rm-code-block,.rm-inline-code-block,.CodeMirror-scroll,.cm-scroller,pre,.rm-diagram,.rm-mermaid,.rm-pdf-container';
+  // Folio keeps its stylesheet for independently enabled components as well as its theme.
+  // No settings access, polling, DOM reparenting or writes to Folio-owned attributes.
+  function syncFolio() {
+    if(!root)return;
+    const sheet=document.querySelector('style#folio-plugin-style');
+    const enabled=!!sheet && !sheet.disabled && !sheet.sheet?.disabled &&
+      (!sheet.media || window.matchMedia(sheet.media).matches);
+    if(root.hasAttribute('data-lg-folio')===enabled)return;
+    if(enabled)mark(root,'data-lg-folio');else root.removeAttribute('data-lg-folio');
+    queue();
+  }
+  function widgetScroll(target,dx,dy) {
+    if(!root)return false;
+    for(let el=target?.closest?.(WIDE);el && root.contains(el);el=el.parentElement?.closest(WIDE)) {
+      const css=getComputedStyle(el),horizontal=Math.abs(dx)>Math.abs(dy);
+      const overflow=horizontal?css.overflowX:css.overflowY;
+      const excess=horizontal?el.scrollWidth-el.clientWidth:el.scrollHeight-el.clientHeight;
+      if(/auto|scroll/.test(overflow) && excess>1)return true;
+    }
+    return false;
+  }
   const visible = el => !!el?.getClientRects().length && getComputedStyle(el).visibility !== "hidden";
 
   const store = 'gingko-controls-v1';
@@ -32,6 +54,51 @@ async function startGingko(extensionAPI) {
   const grainURL='data:image/svg+xml,'+encodeURIComponent(grain);
   const style = document.createElement("style");
   style.textContent = `
+    /* Roam's full-width host has a -116px right margin. Bound the host,
+       not just the widget inside it. This also covers future full-width widgets. */
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-full-width,.rm-ds-q){
+      box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+      margin-inline:0!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] .kanban-column-container{
+      box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+      overflow-x:auto!important;overscroll-behavior-x:contain}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] .rm-data-table__footer{
+      box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;
+      display:flex!important;flex-wrap:wrap!important;gap:6px!important;white-space:normal!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] .rm-data-table__footer > *{
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important;flex-wrap:wrap!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] .rm-data-table__table > table{
+      width:max-content!important;min-width:100%!important;max-width:none!important;table-layout:auto!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-bq,.rm-block-quote,blockquote,.rm-callout,.rm-callout__body,.rm-pdf-container,.bp3-slider){
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important;margin-inline:0!important}
+    /* Theme-independent width safeguards are confined to card content. The outline boxes stay
+       overflow-visible so children can occupy the next column. ID specificity
+       also overrides Folio's deep theme selectors, regardless of load order. */
+    html body :is(#lg-folio-scope,[data-lg-board]) :is(#lg-folio-card,[data-lg-row]) > :is(.roam-block,.rm-block__input,.rm-block-text,.rm-autocomplete__wrapper){
+      box-sizing:border-box!important;flex:1 1 0%!important;min-width:0!important;
+      width:0!important;max-width:100%!important;margin-inline:0!important;overflow-wrap:anywhere!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-block__input,.rm-block-text,.roam-block,textarea.rm-block-input,textarea.rm-block__input){
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important;overflow-wrap:anywhere!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-page-ref,.rm-page-ref--tag,.rm-alias,.rm-highlight,a){
+      white-space:normal!important;overflow-wrap:anywhere!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(img,video,iframe,object,embed,.react-resizable,.rm-inline-img,.rm-inline-img__resize){
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(img,video){height:auto!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-query,.rm-query-content,.rm-ref-page-view,.rm-embed-container,.rm-table,.rm-data-table,.rm-data-table__table,.kanban-board,.rm-code-block,.rm-inline-code-block,.CodeMirror,.cm-editor,pre,.rm-diagram,.rm-mermaid){
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important;margin-inline:0!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-query,.rm-embed-container,.rm-table,.rm-data-table__table,.kanban-board,.rm-code-block,.rm-inline-code-block,pre,.rm-diagram,.rm-mermaid){
+      width:100%!important;overflow-x:auto!important;overscroll-behavior-x:contain}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-query-title,.rm-code-block__settings-bar){
+      min-width:0!important;max-width:100%!important;flex-wrap:wrap!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-query,.rm-embed-container) :is(.rm-block-main,.rm-block__self){
+      box-sizing:border-box!important;min-width:0!important;max-width:100%!important}
+    html body :is(#lg-folio-scope,[data-lg-board]) [data-lg-row] :is(.rm-query,.rm-embed-container) :is(.rm-block-main,.rm-block__self) > :is(.rm-block__input,.rm-block-text,.roam-block,.rm-autocomplete__wrapper){
+      flex:1 1 0%!important;min-width:0!important;width:0!important;max-width:100%!important;box-sizing:border-box!important}
+    /* Page-margin asides belong to Gingko's columns while the mode is active. */
+    html body :is(#lg-folio-scope,[data-lg-board][data-lg-folio]) :is(#lg-folio-card,[data-lg-box])[data-mag-aside]{
+      position:absolute!important;left:var(--lg-x)!important;top:var(--lg-y)!important;
+      right:auto!important;bottom:auto!important;width:var(--lg-width)!important;
+      min-width:0!important;max-width:none!important;margin:0!important;transform:none!important}
     #lg-tools{display:inline-flex;align-items:center;gap:2px}
     #lg-tools.lg-fixed{position:fixed;top:5px;right:12px;z-index:101}
     #lg-tools button{width:30px;height:30px;padding:5px;color:inherit}
@@ -438,20 +505,35 @@ async function startGingko(extensionAPI) {
       if (item) { item.click(); return true; }
       await wait(30);
     }
-    (input || pane).dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",code:"Escape",keyCode:27,which:27,bubbles:true}));
+    // Never send Escape: desktop hosts can interpret it as leaving fullscreen.
+    // Dismiss only this palette's overlay; if it remains open, do not send chords.
+    const overlay=pane.closest('.bp3-overlay,.bp4-overlay,.bp5-overlay');
+    const backdrop=overlay?.querySelector('.bp3-overlay-backdrop,.bp4-overlay-backdrop,.bp5-overlay-backdrop');
+    backdrop?.click();
+    await wait(30);
     return false;
   }
   async function zen(on) {
     const state=zenState();
     if(on){sentZen=false;confirmedZen=state===true;}
-    if(state===on && (on || !sentZen || confirmedZen)) return;
-    if(on) sentZen=true;
+    if(state===on){if(!on)sentZen=false;return;}
+    // Theme-dependent chrome can make state unreadable. Pair an entry command
+    // with one exit command, rather than refusing to exit on unknown DOM state.
+    if(!on && state===null && !sentZen && !confirmedZen)return;
     if (!(await paletteCommand())) {
+      if(all('.rm-command-palette,.bp3-omnibar,.bp4-omnibar,.bp5-omnibar').some(visible)){
+        notice("Close the command palette and use Toggle Zen Mode if needed.");return;
+      }
       stroke("k", true); await wait(55); stroke("z");
     }
+    sentZen=on;
     for (let i=0;i<12 && zenState()!==on;i++) await wait(40);
     if(on && zenState()===true) confirmedZen=true;
-    if (zenState() === !on) notice("Roam did not switch Zen Mode. Check the Toggle Zen Mode shortcut.");
+    if(!on)confirmedZen=false;
+    if (zenState() === !on) {
+      if(on)sentZen=false;
+      notice("Roam did not switch Zen Mode. Check the Toggle Zen Mode shortcut.");
+    }
   }
 
   function findRoot() {
@@ -564,6 +646,7 @@ async function startGingko(extensionAPI) {
     for (const row of all(ROW,root)) {
       const box=row.closest(BOX);
       if (!box || box===root || nodes.has(box) || row.closest(OMIT) || !visible(row)) continue;
+      if(row.closest(WIDE))continue;
       const domParent=nodes.get(box.parentElement.closest(BOX));
       const parent=domParent || pageNode;
       const depth=parent ? parent.depth+1 : 0;
@@ -714,6 +797,7 @@ async function startGingko(extensionAPI) {
   }
   function wheel(e){
     if(!inBoard(e.target) || e.ctrlKey || popupOpen())return;
+    if(!e.altKey && widgetScroll(e.target,e.shiftKey?(e.deltaX||e.deltaY):e.deltaX,e.shiftKey?0:e.deltaY))return;
     if(e.altKey){
       e.preventDefault();manual=false;
       zoom=Math.max(.6,Math.min(1.8,zoom+(e.deltaY<0?.1:-.1)));queue();return;
@@ -736,6 +820,7 @@ async function startGingko(extensionAPI) {
   function touchMove(e){
     if(!touchPoint || e.touches.length!==1)return;
     const t=e.touches[0],dx=touchPoint.x-t.clientX,dy=touchPoint.y-t.clientY;
+    if(widgetScroll(e.target,dx,dy)){touchPoint=null;return;}
     held=false;
     if(Math.abs(dx)>Math.abs(dy)){manual=true;root.scrollLeft+=dx;}
     else scrollColumn(touchPoint.depth,dy);
@@ -750,7 +835,7 @@ async function startGingko(extensionAPI) {
     observer?.disconnect();sizes?.disconnect();watched.clear();
     cancelAnimationFrame(frame);frame=0;
     for(const el of touched) {
-      for(const a of ["data-lg-board","data-lg-box","data-lg-row","data-lg-role","data-lg-pass","data-lg-sep","data-lg-group","data-lg-page","data-lg-depth"]) el.removeAttribute(a);
+      for(const a of ["data-lg-board","data-lg-folio","data-lg-box","data-lg-row","data-lg-role","data-lg-pass","data-lg-sep","data-lg-group","data-lg-page","data-lg-depth"]) el.removeAttribute(a);
       for(const v of ["--lg-x","--lg-y","--lg-width","--lg-end-x","--lg-end-y","--lg-paper","--lg-profile","--lg-title-x","--lg-title-y","--lg-title-clip","--lg-groups"]) el.style.removeProperty(v);
     }
     touched.clear();root=active=null;pageCard=null;pageUid=null;titlePosition=null;held=dragging=false;
@@ -774,6 +859,7 @@ async function startGingko(extensionAPI) {
     if(!root){await close();return;}
     const paper=paperColor(root);
     mark(root,"data-lg-board");variable(root,"--lg-paper",paper);
+    syncFolio();
     const article=root.closest(".roam-article");
     pageCard=article?.querySelector(".rm-title-display-container[data-page-uid]") || null;
     pageUid=pageCard?.getAttribute("data-page-uid") || null;
@@ -1029,6 +1115,7 @@ async function startGingko(extensionAPI) {
   };
   panel.addEventListener("close",positionActions);
   const listeners=[
+    [document,"folio:appearance-change",syncFolio],
     [window,"pointerdown",armDrag,true],[document,"pointerdown",down,true],[window,"pointerup",finishPointer,true],
     [window,"mousedown",guardDragGesture,true],[window,"mousemove",guardDragGesture,true],
     [window,"pointermove",guardDragGesture,true],[window,"selectstart",guardDragGesture,true],
@@ -1045,6 +1132,8 @@ async function startGingko(extensionAPI) {
     [document,"keydown",shortcut,true],[document,"keydown",enterSibling,true],[window,"keydown",navigate,true],[document,"dragover",dragOver,true],[document,"scroll",()=>{if(root && manual)columnScroll=root.scrollLeft;else if(root && Math.abs(root.scrollLeft-columnScroll)>1)root.scrollLeft=columnScroll;positionTitle();positionActions();},true]
   ];
   for(const [el,type,fn,opt] of listeners)el.addEventListener(type,fn,opt);
+  const folioObserver=new MutationObserver(syncFolio);
+  folioObserver.observe(document.head,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','media','id']});
   const chrome=new MutationObserver(()=>{
     positionActions();
     if(root && (!root.isConnected||location.href!==route)){switchMode();return;}
@@ -1085,7 +1174,7 @@ async function startGingko(extensionAPI) {
   window[key]={dispose(){
     if(disposal)return disposal;
     disposed=true;operationEpoch++;focusRequest++;
-    chrome.disconnect();for(const [el,type,fn,opt] of listeners)el.removeEventListener(type,fn,opt);
+    chrome.disconnect();folioObserver.disconnect();for(const [el,type,fn,opt] of listeners)el.removeEventListener(type,fn,opt);
     clearTimeout(clickTimer);clearTimeout(shortcutTimer);
     panel.removeEventListener("close",positionActions);
     for(const [url,timer] of downloads){clearTimeout(timer);URL.revokeObjectURL(url);}downloads.clear();
