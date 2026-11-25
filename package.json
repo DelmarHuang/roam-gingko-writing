@@ -1,0 +1,12 @@
+{
+  "name": "roam-gingko-writing",
+  "version": "1.0.3",
+  "type": "module",
+  "private": true,
+  "description": "Theme-adaptive horizontal writing view for Roam Research",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/layout.cjs && node tests/mutations.cjs && node tests/lifecycle.cjs",
+    "test:browser": "node tests/browser.cjs"
+  }
+}
