@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync(require('path').join(__dirname,'../extension.js'),'utf8');
+const attrs=new Set(),box={uid:'source'},handle={closest:()=>box};
+const target={closest:s=>s==='BOX'?box:handle};
+const ctx={root:{contains:n=>!!n,setAttribute:k=>attrs.add(k),removeAttribute:k=>attrs.delete(k)},BOX:'BOX',blockUid:b=>b.uid,dragCandidate:null,held:false,dragging:false,moving:null,dropRow:null,release(){ctx.held=false},window:{getSelection:()=>null}};
+vm.createContext(ctx);vm.runInContext(src.slice(src.indexOf('  function armDrag(e)'),src.indexOf('  function focus(e)')),ctx);
+const event=(target,extra={})=>({target,button:0,stopImmediatePropagation(){this.stopped=true},preventDefault(){this.prevented=true},...extra});
+const text=event({closest:()=>null});ctx.armDrag(text);assert.equal(text.stopped,undefined);assert.equal(attrs.size,0);
+const modified=event(target,{shiftKey:true});ctx.armDrag(modified);assert.equal(modified.stopped,undefined);
+const down=event(target);ctx.armDrag(down);assert.equal(down.stopped,true);assert.equal(down.prevented,undefined,'retain native drag default');assert.ok(attrs.has('data-lg-drag-armed'));
+const selecting=event(target,{type:'selectstart'});ctx.guardDragGesture(selecting);assert.equal(selecting.prevented,true);
+const data=[];const drag=event(target,{dataTransfer:{setData:(...v)=>data.push(v)}});ctx.dragStart(drag);assert.equal(ctx.moving,'source');assert.equal(ctx.dragging,true);assert.equal(data[0][1],'((source))');
+ctx.dragEnd();assert.equal(ctx.dragCandidate,null);assert.equal(attrs.size,0);assert.equal(ctx.held,false);
+const after=event(target,{type:'selectstart'});ctx.guardDragGesture(after);assert.equal(after.prevented,undefined,'ordinary selection restored');
+ctx.armDrag(event(target));ctx.finishPointer(event(target));assert.equal(attrs.size,0);assert.equal(ctx.dragCandidate,null);
+console.log('PASS bullet drag suppresses range selection, text and modified gestures stay native, pointer/drag cleanup');

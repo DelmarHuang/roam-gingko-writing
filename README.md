@@ -1,12 +1,12 @@
 # Gingko Writing
 
-Version 1.0.3 · Roam Research plugin
+Version 1.1.3 · Roam Research plugin
 
 Gingko Writing turns the main Roam outline into a horizontal writing workspace. The page title appears in the first column; top-level blocks sit to its right, followed by their children. Block editing stays in Roam's own editor.
 
 ## See the difference
 
-The same page with the same custom theme, before and after enabling Gingko Writing.
+The same page and custom theme, before and after enabling Gingko Writing. The page text in the screenshots contains an older version label; the plugin version is 1.1.3.
 
 **Before — standard Roam outline**
 
@@ -24,12 +24,14 @@ The same page with the same custom theme, before and after enabling Gingko Writi
 - **Simplified title styling:** while this mode is active, the plugin suppresses title decorations, pseudo-elements and extra title-container elements, and normalizes title typography. It removes these overrides on exit. Highly unusual theme markup may still need a compatibility adjustment.
 - **Theme-derived colors:** backgrounds and text colors come from the existing page. There is no fixed blue canvas.
 - **No native hierarchy guide lines:** the vertical `rm-multibar` guides are hidden in transformed columns; draggable bullets remain available.
-- **Uniform card borders:** ordinary blocks share the same thin border treatment. The selected block has a subtle outline and an adjustable, theme-derived tint.
-- **Branch highlighting:** the current block, its ancestors and its actual descendants remain visually distinct. Other branches are dimmed. For example, when B owns 4 and 5, children of A and C are not highlighted as B's children.
-- **Separated sibling groups:** extra vertical space distinguishes groups with different parents.
+- **Continuous sibling groups:** children of the same parent share one background surface. Ordinary blocks have no individual frames; the selected branch uses the same theme-derived paper color as the floating toolbar.
+- **Connected branches:** selected cards and their child groups meet at their shared edge when visible spans overlap. Ancestors use a context shade and unrelated groups retain separate surfaces.
+- **Branch highlighting:** only the current block and its actual descendants use the bright surface. Ancestors, siblings and unrelated branches are dimmed. Other branches use a subdued group surface and adjustable text opacity; their bullets remain reachable. For example, when B owns 4 and 5, children of A and C are not highlighted as B's children.
+- **Compact groups:** adjacent cards and groups meet without spacer rows. Theme-derived surface shading distinguishes branches; current and descendant surfaces share the same paper color and one rounded outer contour.
 - **Writing focus:** the selected block/caret is positioned around the vertical center as you edit.
 - **Stable horizontal position:** moving between siblings keeps the current column position, whether or not the next block has children.
-- **Manual browsing:** ordinary wheel/touch scrolling pauses automatic centering. Typing or navigating resumes writing focus. The view does not periodically snap back just because an editor remains focused.
+- **Independent column browsing:** vertical wheel/touch movement scrolls the column under the pointer. Parent and neighboring columns keep their positions. Horizontal trackpad movement or Shift + wheel browses across columns. Typing or explicit focus/navigation resumes automatic positioning.
+- **Long child groups:** groups taller than the comfortable reading area start near their parent, keeping their first child visible rather than centering the entire group.
 - **Column sizing:** columns adapt to viewport width and hierarchy depth. `Alt + mouse wheel` adjusts column width for the current session.
 - **Side margins:** adjustable breathing room on both sides of the workspace.
 - **Zen Mode integration:** entering Gingko requests Roam's Zen Mode; leaving requests exit from Zen Mode too. The plugin uses the native command when available, with the usual shortcut chord as a fallback.
@@ -58,7 +60,7 @@ The same page with the same custom theme, before and after enabling Gingko Writi
 
 ### Up and down
 
-- **Up / Down:** move to the previous or next sibling under the same parent, including when editing a multiline block.
+- **Up / Down:** move normally through visual lines inside the current block, including soft-wrapped text. Only an additional Up on the first line or Down on the last line switches to the previous or next sibling under the same parent. Up enters the previous block at its end; Down enters the next at its start.
 - At either end of a sibling group, navigation stops; it does not jump into another parent's children.
 
 ### Left and right — optional, off by default
@@ -68,7 +70,7 @@ Enable **Left/right block navigation** in settings to use these rules:
 - **Left at the very start of a block:** go to its parent.
 - **Right at the very end of a block:** go to a child. If a previously visited child is remembered for this session, return to that child; otherwise use the first child.
 - **Right at the end of a block with no children:** create an empty child, expand the parent and focus the child.
-- In the middle of the text, Left/Right retain normal text-cursor movement.
+- In the middle of the text, Left/Right retain normal text-cursor movement. Navigation requires a focused native editor and a collapsed selection. Holding an arrow does not repeatedly navigate or create empty descendants.
 - Selected text is not treated as a navigation boundary.
 - From a top-level block, Left can focus the page title. From the title, Right can navigate into the page's children. The page title has no parent or sibling navigation.
 
@@ -102,13 +104,12 @@ Open settings by double-clicking/right-clicking the icon or running `Gingko Writ
 | Setting | Purpose | Initial value / range |
 | --- | --- | --- |
 | Block buttons | Show the three floating block actions | On |
+| Paper texture | Fine irregular paper fibers inside the highlighted branch only | On |
 | Left/right block navigation | Enable boundary-based parent/child navigation | Off |
-| Side margins | Space around the workspace | 40 px; 16–120 px |
-| Inactive block opacity | Visibility of unrelated blocks; smaller means fainter | 18%; 2–80% |
-| Current block tint | Strength of the selected block's theme-derived background tint | 3.5%; 0–12% |
+| Side margins | Content breathing room; the canvas itself fills the workspace | 40 px; 16–120 px |
+| Inactive text opacity | Visibility of unrelated blocks; smaller means fainter | 18%; 2–80% |
 
-- Hovering an inactive card raises its opacity to at least 35% to help with pointer navigation; selecting it makes it active.
-- Setting the current-block tint to zero removes that extra background tint; the focus outline remains.
+- Hovering any card restores its text to full opacity, including siblings, ancestors, unrelated blocks and the page title. Moving away restores inactive opacity; hovering does not change the selected branch.
 - Existing preferences from the earlier script are read on first use, so your values may differ from the initial values above.
 - In the plugin version, changed preferences are stored through Roam's extension settings when writing is permitted, with a local copy for compatibility. The `roam/js` fallback stores preferences locally.
 - Column zoom and remembered child navigation are session-only.
@@ -129,7 +130,7 @@ Open settings by double-clicking/right-clicking the icon or running `Gingko Writ
 - The page-title column requires Roam's native page-title container. A zoomed block view without that container has no separate title card.
 - It uses Roam DOM selectors as well as public APIs. Future Roam markup changes or plugins that rewrite titles, keyboard handling, scrolling or Zen Mode can require adjustments.
 - Zen detection and switching are best-effort; a notice is shown when a contradictory state is detected. Customized or unavailable Zen shortcuts may prevent switching.
-- Syntax, focus/navigation/layout regression checks and mocked plugin load/unload/reload checks passed. This release has not been exhaustively tested against all themes or installed in the user's live graph as part of packaging.
+- Syntax, focus/navigation/layout regression checks and mocked plugin load/unload/reload checks passed. The author tested and approved this version in a live Roam graph. Compatibility with every theme and plugin combination is not guaranteed.
 - There are no bundled runtime dependencies or remote script downloads. User-triggered export downloads a local Markdown file; native Roam graph changes and extension preferences use Roam's own APIs.
 
 ## 9. Acknowledgements

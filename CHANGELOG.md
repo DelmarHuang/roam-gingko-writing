@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.1.3
+
+- Restore full text opacity on hover for every block role and the page title, not only unrelated branches.
+- Keep the active branch and background unchanged while hovering.
+
+## 1.1.2
+
+- Isolate bullet-drag pointer and mouse gestures from Roam range selection while retaining native HTML drag initiation.
+- Temporarily disable text selection only inside the outline during bullet dragging; restore it on release, cancellation, drag end or window blur.
+- Preserve ordinary text selection and modified selection gestures.
+
+## 1.1.1
+
+- Preserve native up/down movement within multiline blocks; switch siblings only at the first or last visual line.
+- Enter the previous sibling at its end and the next sibling at its start.
+- Restyle floating actions as a compact borderless tab attached to the card, with matching paper background and quieter icons.
+
+## 1.1.0
+
+- Dim the Page title label and title text consistently without multiplying nested editor opacity.
+
+- Use continuous branch surfaces with a unified rounded outer contour and flush internal joins.
+- Highlight only the current block and its descendants using the same theme-derived paper color as the floating toolbar; dim other branches.
+- Fill the workspace below the toolbar while preserving content breathing room.
+- Add optional fine paper fibers confined to the highlighted silhouette; leave inactive areas plain.
+- Support independent column scrolling and keep manual horizontal browsing stable.
+- Limit default column width and prevent native caret reveal from undoing horizontal centering.
+- Preserve native editing and boundary-based parent/child navigation, with guards for selections, composition, modifiers and held-arrow repeats.
+- Keep up/down navigation within the same parent and retain immediate focus for newly created blocks.
+- Add layout, outline, texture-scope and keyboard regression checks.
+
 ## 1.0.3
 
 - Center the page-title column when clicked or focused; resume automatic focus after manual browsing and keep centering on resize.

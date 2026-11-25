@@ -12,12 +12,24 @@ async function startGingko(extensionAPI) {
   const visible = el => !!el?.getClientRects().length && getComputedStyle(el).visibility !== "hidden";
 
   const store = 'gingko-controls-v1';
-  let config = { buttons: true, arrows: false, margin: 40, dim: 0.18, focusTint: 0.035 };
+  let config = { buttons: true, arrows: false, texture: true, margin: 40, dim: 0.18, focusTint: 0.035 };
   try { config = { ...config, ...JSON.parse(localStorage.getItem(store) || '{}') }; } catch {}
   try { config={...config,...(extensionAPI?.settings?.get("preferences") || {})}; } catch {}
   config.dim=Math.max(.02,Math.min(.8,Number(config.dim)||.18));
   config.focusTint=Math.max(0,Math.min(.12,Number(config.focusTint)||0));
   let settingsWrite=Promise.resolve();
+  // Repeating local SVG tile; no external image, canvas or network request.
+  let grainSeed=71;
+  const randomGrain=()=>((grainSeed=(grainSeed*1664525+1013904223)>>>0)/4294967296);
+  const grainMarks=Array.from({length:1100},()=>{
+    const x=randomGrain()*192,y=randomGrain()*192,length=.7+randomGrain()*3.3;
+    const angle=randomGrain()*Math.PI*2,dx=Math.cos(angle)*length,dy=Math.sin(angle)*length;
+    const d=`M${x.toFixed(2)} ${y.toFixed(2)}q${(dx*.45-dy*.18).toFixed(2)} ${(dy*.45+dx*.18).toFixed(2)} ${dx.toFixed(2)} ${dy.toFixed(2)}`;
+    const width=(.25+randomGrain()*.45).toFixed(2),alpha=(.035+randomGrain()*.045).toFixed(3);
+    return `<path d="${d}" fill="none" stroke="#fff" stroke-width="${width}" opacity=".18" transform="translate(.35 .35)"/><path d="${d}" fill="none" stroke="#000" stroke-width="${width}" opacity="${alpha}"/>`;
+  }).join('');
+  const grain='<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192">'+grainMarks+'</svg>';
+  const grainURL='data:image/svg+xml,'+encodeURIComponent(grain);
   const style = document.createElement("style");
   style.textContent = `
     #lg-tools{display:inline-flex;align-items:center;gap:2px}
@@ -84,7 +96,7 @@ async function startGingko(extensionAPI) {
       box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 18%,transparent)!important}
     [data-lg-row][data-lg-role=current]{
       outline:1px solid color-mix(in srgb,currentColor 55%,transparent)!important;outline-offset:0;
-      background:color-mix(in srgb,currentColor 7%,var(--lg-paper))}
+      background:color-mix(in srgb,currentColor 14%,var(--lg-paper))}
     [data-lg-row][data-lg-group=selected]{
       background:color-mix(in srgb,currentColor 5%,var(--lg-paper))}
     [data-lg-page]{position:fixed!important;left:var(--lg-title-x)!important;
@@ -159,6 +171,57 @@ async function startGingko(extensionAPI) {
       display:none!important;border:0!important;background:none!important;box-shadow:none!important;pointer-events:none!important;
     }
   `;
+  style.textContent += `
+    [data-lg-board]{left:0!important;right:0!important;top:36px!important;bottom:0!important;border-radius:0!important;overflow-y:hidden!important;background:color-mix(in srgb,currentColor 14%,var(--lg-paper))!important}
+    [data-lg-board]::before{clip-path:none!important;opacity:1!important;z-index:-1;
+      background:var(--lg-groups) no-repeat 0 0!important;width:var(--lg-end-x);height:var(--lg-end-y)}
+    html body :is(#gingko-group-override,[data-lg-row]){
+      opacity:1!important;border:0!important;outline:0!important;box-shadow:none!important;
+      border-radius:0!important;background:transparent!important;padding:15px 18px!important;
+      transition:background-color 130ms ease!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-role=current]{
+      background:transparent!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-role=other] > :not(.controls){opacity:var(--gc-dim)!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-role]:hover > :not(.controls){opacity:1!important}
+    html body :is(#gingko-group-override,[data-lg-row]):is([data-lg-role=context],[data-lg-role=peer]) > :not(.controls){opacity:var(--gc-dim)!important}
+    html body :is(#gingko-group-override,[data-lg-row]):is([data-lg-role=current],[data-lg-role=child]) > :not(.controls){opacity:1!important}
+    html body :is(#gingko-group-override,[data-lg-row]) > .controls{opacity:.45}
+    html body :is(#gingko-group-override,[data-lg-row]):hover > .controls{opacity:1}
+    html body :is(#gingko-title-override,[data-lg-page]){box-shadow:none!important;border-radius:7px!important;outline:none!important}
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=current]{background:color-mix(in srgb,currentColor 0%,var(--lg-paper))!important}
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=context]{background:color-mix(in srgb,currentColor 14%,var(--lg-paper))!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=up]{box-shadow:inset 0 3px currentColor!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=down]{box-shadow:inset 0 -3px currentColor!important}
+    html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=right]{box-shadow:inset -3px 0 currentColor!important}
+  `;
+  style.textContent += `
+    [data-lg-board]{background-image:none!important}
+    html body :is(#gingko-title-override,[data-lg-page]){background-image:none!important}
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=current]{background-image:var(--lg-texture)!important}
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=context]{opacity:1!important}
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=context]::before,
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role=context] > :is(.rm-title-display,.rm-title-editing-display){opacity:var(--gc-dim)!important}
+    html body :is(#gingko-title-override,[data-lg-page]) :is(.rm-title-display,.rm-title-editing-display) :is(span,textarea){opacity:1!important}
+  `;
+  style.textContent += `
+    html body #gc-actions{gap:1px;padding:2px 5px;border:0!important;box-shadow:none!important;
+      border-radius:7px 7px 0 0;background:var(--gc-paper,Canvas)!important;
+      background-image:var(--lg-texture)!important;z-index:6}
+    html body #gc-actions button{width:22px!important;height:22px!important;min-width:22px!important;
+      min-height:22px!important;padding:3px!important;margin:0!important;border:0!important;
+      box-shadow:none!important;border-radius:4px;background:transparent!important;color:inherit!important;opacity:.6}
+    html body #gc-actions button::before{font-size:13px!important;color:inherit!important}
+    html body #gc-actions button:hover,html body #gc-actions button:focus-visible{
+      opacity:1;background:color-mix(in srgb,currentColor 7%,transparent)!important}
+  `;
+  style.textContent += `
+    [data-lg-board][data-lg-drag-armed], [data-lg-board][data-lg-drag-armed] *{
+      user-select:none!important;-webkit-user-select:none!important}
+  `;
+  style.textContent += `
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role]:hover::before,
+    html body :is(#gingko-title-override,[data-lg-page])[data-lg-role]:hover > :is(.rm-title-display,.rm-title-editing-display){opacity:1!important}
+  `;
   document.head.append(style);
 
   const tools = document.createElement("span");
@@ -179,7 +242,7 @@ async function startGingko(extensionAPI) {
   let session = false, held = false, dragging = false, zoom = 1, disposed = false;
   let route, oldScroll, scroller, sentZen, confirmedZen;
   let manual=false, clickTimer, busy=false;
-  let lastIconClick=0, moving=null, dropRow=null, tabPending=false;
+  let lastIconClick=0, moving=null, dropRow=null, tabPending=false, dragCandidate=null;
   let focusRequest=0, operationEpoch=0, shortcutTimer;
   const downloads=new Map();
   const cancelled=()=>Object.assign(new Error("Operation cancelled"),{cancelled:true});
@@ -198,14 +261,16 @@ async function startGingko(extensionAPI) {
   panel.id = 'gc-settings';
   panel.innerHTML = `<strong>Gingko Writing settings</strong>
     <label>Block buttons<input name="buttons" type="checkbox"></label>
+    <label>Paper texture<input name="texture" type="checkbox"></label>
     <label>Left/right block navigation<input name="arrows" type="checkbox"></label>
     <label>Side margins<input name="margin" type="range" min="16" max="120" step="4"></label>
-    <label>Inactive block opacity<input name="dim" type="range" min="0.02" max="0.8" step="0.01"></label>
-    <label>Current block tint<input name="focusTint" type="range" min="0" max="0.12" step="0.005"></label>
+    <label>Inactive text opacity<input name="dim" type="range" min="0.02" max="0.8" step="0.01"></label>
+
     <button type="button" class="bp3-button">Close</button>`;
   panel.querySelector('button').onclick = () => panel.close();
   document.body.append(panel);
   function apply() {
+    document.documentElement.style.setProperty('--lg-texture',config.texture?`url("${grainURL}")`:'none');
     document.documentElement.style.setProperty('--gc-margin', config.margin + 'px');
     document.documentElement.style.setProperty('--gc-dim', config.dim);
     document.documentElement.style.setProperty('--gc-focus-tint', (config.focusTint*100)+'%');
@@ -232,6 +297,8 @@ async function startGingko(extensionAPI) {
   }
   let pageCard=null, pageUid=null, titlePosition=null, titleObserver=null;
   let focusingUid=null, columnDepth=null, columnScroll=0;
+  const columnY=new Map(),columnEnds=new Map();
+  let columnGeometry=null,touchPoint=null;
   const inBoard=el=>!!el && (!!root?.contains(el)||!!pageCard?.contains(el));
   function positionTitle(){
     if(!root || !pageCard || !titlePosition)return;
@@ -302,8 +369,8 @@ async function startGingko(extensionAPI) {
     actions.style.display = show ? 'flex' : 'none';
     if (!show) return;
     actions.style.setProperty('--gc-paper', root.style.getPropertyValue('--lg-paper'));
-    actions.style.left = Math.max(b.left, Math.min(r.right - 100, b.right - 104)) + 'px';
-    actions.style.top = Math.max(5, r.top - 34) + 'px';
+    actions.style.left = Math.max(b.left, Math.min(r.right - 86, b.right - 86)) + 'px';
+    actions.style.top = Math.max(b.top, r.top - 26) + 'px';
   }
 
   function mark(el, name, value = "") {
@@ -418,13 +485,12 @@ async function startGingko(extensionAPI) {
   function queue() {
     if (!disposed && root && !frame) frame=requestAnimationFrame(() => {frame=0;layout();});
   }
-  function caretOffset(input,row) {
+  function caretOffset(input,row,at=input.selectionDirection==="backward"?input.selectionStart:input.selectionEnd) {
     const mirror=document.createElement("div"), css=getComputedStyle(input);
     for(const prop of ["font","lineHeight","letterSpacing","wordSpacing","textIndent","tabSize","padding","border","boxSizing","direction","textAlign","wordBreak","overflowWrap"])
       mirror.style[prop]=css[prop];
     Object.assign(mirror.style,{position:"fixed",visibility:"hidden",pointerEvents:"none",top:"0",left:"0",
       width:input.offsetWidth+"px",whiteSpace:"pre-wrap",overflowWrap:"break-word"});
-    const at=input.selectionDirection==="backward"?input.selectionStart:input.selectionEnd;
     const marker=document.createElement("span");
     marker.textContent=input.value.slice(at)||"\u200b";
     mirror.append(document.createTextNode(input.value.slice(0,at)),marker);
@@ -435,28 +501,63 @@ async function startGingko(extensionAPI) {
     mirror.remove();
     return y;
   }
-  function branchGuide(levels,chain,branch,width) {
-    const paths=[];
-    for(const nodes of [branch]) {
-      const spans=[];
-      for(const col of levels) {
-        const chosen=col.filter(n=>nodes.has(n));
-        if(!chosen.length) continue;
-        const a=chosen[0], b=chosen.at(-1);
-        spans.push({x:a.x,y:a.top,b:b.top+b.height});
-      }
-      if(!spans.length) continue;
-      const right=s=>s.x+width;
-      const points=[];
-      for(const s of spans) points.push([s.x,s.y],[right(s),s.y]);
-      for(const s of spans.reverse()) points.push([right(s),s.b],[s.x,s.b]);
-      paths.push("M"+points.map(p=>p.join(" ")).join("L")+"Z");
+  // Paint sibling groups behind native editors; never reparent Roam's React nodes.
+  function surfaceOutline(rects,radius){
+    if(!rects.length)return '';
+    const xs=[...new Set(rects.flatMap(r=>[r.x,r.x+r.w]))].sort((a,b)=>a-b);
+    const ys=[...new Set(rects.flatMap(r=>[r.y,r.y+r.h]))].sort((a,b)=>a-b);
+    const cells=new Set(),key=(x,y)=>x+','+y;
+    for(const r of rects)for(let x=xs.indexOf(r.x);x<xs.indexOf(r.x+r.w);x++)
+      for(let y=ys.indexOf(r.y);y<ys.indexOf(r.y+r.h);y++)cells.add(key(x,y));
+    const edges=new Map();
+    const add=(x,y,a,b)=>{const k=key(x,y);if(!edges.has(k))edges.set(k,[]);edges.get(k).push([a,b]);};
+    for(const cell of cells){const [x,y]=cell.split(',').map(Number);
+      if(!cells.has(key(x,y-1)))add(x,y,x+1,y);
+      if(!cells.has(key(x+1,y)))add(x+1,y,x+1,y+1);
+      if(!cells.has(key(x,y+1)))add(x+1,y+1,x,y+1);
+      if(!cells.has(key(x-1,y)))add(x,y+1,x,y);
     }
-    const d=paths.join(" ");
-    variable(root,"--lg-profile",'path("'+d+'")');
+    const paths=[];
+    while(edges.size){
+      const start=edges.keys().next().value;let at=start;const points=[];
+      do{const [x,y]=at.split(',').map(Number);points.push([xs[x],ys[y]]);
+        const choices=edges.get(at),next=choices.pop();if(!choices.length)edges.delete(at);
+        at=key(...next);
+      }while(at!==start && edges.has(at));
+      const corners=points.filter((p,i)=>{const a=points[(i+points.length-1)%points.length],b=points[(i+1)%points.length];return (p[0]-a[0])*(b[1]-p[1])!==(p[1]-a[1])*(b[0]-p[0]);});
+      const segments=corners.map((p,i)=>{const a=corners[(i+corners.length-1)%corners.length],b=corners[(i+1)%corners.length];
+        const before=Math.hypot(p[0]-a[0],p[1]-a[1]),after=Math.hypot(b[0]-p[0],b[1]-p[1]),r=Math.min(radius,before/2,after/2);
+        return {p,in:[p[0]+(a[0]-p[0])*r/before,p[1]+(a[1]-p[1])*r/before],out:[p[0]+(b[0]-p[0])*r/after,p[1]+(b[1]-p[1])*r/after]};});
+      if(segments.length)paths.push('M'+segments[0].in.join(' ')+segments.map((q,i)=>(i?' L'+q.in.join(' '):'')+' Q'+q.p.join(' ')+' '+q.out.join(' ')).join('')+' Z');
+    }
+    return paths.join(' ');
+  }
+  function branchGuide(levels,chain,branch,width) {
+    const ink=getComputedStyle(root).color, paper=root.style.getPropertyValue("--lg-paper") || paperColor(root);
+    const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    // One silhouette per connected bright region, rather than a mix of
+    // individually rounded groups and square card overlays.
+    const bright=[];
+    for(const col of levels){
+      let run=null;
+      for(const n of col){
+        if(!branch.has(n)){run=null;continue;}
+        if(run && Math.abs(run.y+run.h-n.top)<1)run.h=n.top+n.height-run.y;
+        else {run={x:n.x,y:n.top,w:width,h:n.height};bright.push(run);}
+      }
+    }
+    const outline=surfaceOutline(bright,7);
+    const parts=[`<path d="${outline}" fill="${esc(paper)}"/>`];
+    if(config.texture)parts.push(`<defs><pattern id="paper-grain" width="192" height="192" patternUnits="userSpaceOnUse">${grainMarks}</pattern></defs>`);
+    const endX=Math.ceil(levels.at(-1)[0].x+width+columnGeometry.edge);
+    const endY=Math.ceil(Math.max(...levels.flat().map(n=>n.top+n.height))+root.clientHeight);
+    if(config.texture)parts.push(`<path d="${outline}" fill="url(#paper-grain)"/>`);
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${endX}" height="${endY}">${parts.join('')}</svg>`;
+    variable(root,'--lg-groups',`url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+    variable(root,'--lg-end-x',endX+'px');variable(root,'--lg-end-y',endY+'px');
   }
   function layout() {
-    if (!root || held || dragging) return;
+    if (!root || held || dragging || disposed) return;
     const levels=[], nodes=new Map();
     const pageNode=pageCard?.isConnected?{box:pageCard,row:pageCard,parent:null,depth:0,page:true}:null;
     if(pageNode){nodes.set(pageCard,pageNode);levels.push([pageNode]);}
@@ -478,70 +579,79 @@ async function startGingko(extensionAPI) {
     if(focusingUid && !requested)return;
     const selected=requested || nodes.get(focusBox) || nodes.get(active) ||
       (preferred && [...nodes.values()].find(n=>blockUid(n.box)===preferred)) || nodes.values().next().value;
-    active=selected.box;
-    preferred=blockUid(active);
-    const w=root.clientWidth, h=root.clientHeight, gap=8;
-    if (!w || !h) return;
-    const fit=levels.length===1 ? 1 : levels.length===2 ? 2 : 2.35;
-    const width=Math.min(w-12,Math.max(Math.min(480,w-12),(w-12)/fit-gap)*zoom);
-    // Leave enough scrollable space to center even the first (page-title) column.
+    active=selected.box;preferred=blockUid(active);
+    const w=root.clientWidth,h=root.clientHeight,gap=0;
+    if(!w || !h)return;
+    const width=Math.min(w-12,Math.max(Math.min(360,w-12),Math.min(480,Math.max(1,w-2*config.margin)/3))*zoom);
     const edge=Math.max(6,(w-width)/2);
-    variable(root,"--lg-width",width+"px");
-    if(pageCard)variable(pageCard,"--lg-width",width+"px");
-    const chain=new Set(), branch=new Set([selected]);
-    for(let n=selected;n;n=n.parent) chain.add(n);
-    const input=selected.row.contains(editor) && editor.matches("textarea") ? editor : null;
-    const anchors=[], ends=[];
-    for(const [depth,col] of levels.entries()) {
-      let y=0, first, last, previousParent;
-      for(const n of col) {
-        if(previousParent && n.parent!==previousParent)y+=40;
+    columnGeometry={edge,width,count:levels.length};
+    variable(root,'--lg-width',width+'px');
+    if(pageCard)variable(pageCard,'--lg-width',width+'px');
+    const chain=new Set(),branch=new Set([selected]);
+    for(let n=selected;n;n=n.parent)chain.add(n);
+    const input=selected.row.contains(editor) && editor.matches('textarea')?editor:null;
+    const desired=[],ends=[];
+    for(const [depth,col] of levels.entries()){
+      let y=0,previousParent;
+      for(const n of col){
+        // Adjacent groups meet at their surface boundary, without empty spacer rows.
         previousParent=n.parent;
-        if(branch.has(n.parent)) branch.add(n);
+        if(branch.has(n.parent))branch.add(n);
         const related=chain.has(n)||branch.has(n);
-        mark(n.row,"data-lg-role",n===selected?"current":branch.has(n)?"child":related?"context":"other");
-        mark(n.row,"data-lg-group",n.parent===selected?"selected":"other");
-        n.y=y; n.height=n.row.getBoundingClientRect().height;
-        if(related){first ||= n;last=n;}
-        y+=n.height+gap;
+        mark(n.row,'data-lg-role',n===selected?'current':branch.has(n)?'child':related?'context':chain.has(n.parent)?'peer':'other');
+        mark(n.row,'data-lg-group',n.parent===selected?'selected':'other');
+        mark(n.row,'data-lg-depth',String(depth));
+        n.y=y;n.height=n.row.getBoundingClientRect().height;y+=n.height+gap;
         if(!watched.has(n.row)){sizes.observe(n.row);watched.add(n.row);}
       }
-      ends[depth]=y;
-      anchors[depth]=first?(first.y+last.y+last.height)/2:col[0].height/2;
+      ends[depth]=Math.max(0,y-gap);
+      const anchor=col.find(n=>chain.has(n));
+      if(anchor){
+        const offset=anchor===selected && input?caretOffset(input,anchor.row):Math.min(anchor.height/2,h*.30);
+        desired[depth]=h/2-anchor.y-offset;
+      }else{
+        const related=col.filter(n=>branch.has(n));
+        const first=related[0]||col[0],last=related.at(-1)||first;
+        const span=last.y+last.height-first.y;
+        const owner=first.parent;
+        const ownerTop=owner?(desired[depth-1]+owner.y):h/2;
+        desired[depth]=span>h*.65?Math.max(28,Math.min(h/2,ownerTop))-first.y:h/2-(first.y+last.y+last.height)/2;
+      }
+      if(!manual || !columnY.has(depth))columnY.set(depth,desired[depth]);
+      columnEnds.set(depth,ends[depth]);
     }
-    for(const row of watched) if(row!==pageCard && !root.contains(row)){sizes.unobserve(row);watched.delete(row);}
-    if(input) anchors[selected.depth]=selected.y+caretOffset(input,selected.row);
-    const origin=Math.max(h/2,...anchors);
-    let bottom=0;
-    for(const [depth,col] of levels.entries()) {
-      const dy=origin-anchors[depth];
-      bottom=Math.max(bottom,dy+ends[depth]);
-      for(const n of col) {
-        n.x=edge+depth*(width+gap); n.top=dy+n.y;
-        if(n.page){titlePosition={x:n.x,y:n.top,width};continue;}
-        variable(n.box,"--lg-x",n.x-(n.domParent?.x||0)+"px");
-        variable(n.box,"--lg-y",n.top-(n.domParent?.top||0)+"px");
-        for(const [sep,offset] of [[n.box.previousElementSibling,0],[n.box.nextElementSibling,n.height]]) {
-          if(!sep?.matches(".rm-block-separator")) continue;
-          mark(sep,"data-lg-sep");
-          variable(sep,"--lg-x",n.x-(n.domParent?.x||0)+"px");
-          variable(sep,"--lg-y",n.top+offset-(n.domParent?.top||0)+"px");
-        }
+    for(const depth of columnY.keys())if(depth>=levels.length){columnY.delete(depth);columnEnds.delete(depth);}
+    for(const row of watched)if(row!==pageCard && !root.contains(row)){sizes.unobserve(row);watched.delete(row);}
+    // Shared positive document origin, independent visible offsets for each column.
+    const origin=Math.max(h,...[...columnY.values()].map(y=>-y+h));
+    for(const [depth,col] of levels.entries())for(const n of col){
+      n.x=edge+depth*width;n.top=origin+columnY.get(depth)+n.y;
+      if(n.page){titlePosition={x:n.x,y:n.top,width};continue;}
+      variable(n.box,'--lg-x',n.x-(n.domParent?.x||0)+'px');
+      variable(n.box,'--lg-y',n.top-(n.domParent?.top||0)+'px');
+      for(const [sep,offset] of [[n.box.previousElementSibling,0],[n.box.nextElementSibling,n.height]]){
+        if(!sep?.matches('.rm-block-separator'))continue;
+        mark(sep,'data-lg-sep');variable(sep,'--lg-x',n.x-(n.domParent?.x||0)+'px');variable(sep,'--lg-y',n.top+offset-(n.domParent?.top||0)+'px');
       }
     }
     branchGuide(levels,chain,branch,width);
-    variable(root,"--lg-end-x",Math.ceil(2*edge+levels.length*(width+gap)-gap)+"px");
-    variable(root,"--lg-end-y",Math.ceil(bottom+h/2)+"px");
-    if (!manual) root.scrollTop=origin-h/2;
-    if(!manual){
-      {
-        columnScroll=Math.max(0,selected.x-(w-width)/2);
-      }
-      root.scrollLeft=columnScroll;
-    }else columnScroll=root.scrollLeft;
-    columnDepth=selected.depth;
-    positionTitle();
-    positionActions();
+    root.scrollTop=origin;
+    if(!manual)columnScroll=Math.max(0,selected.x-(w-width)/2);
+    else columnScroll=root.scrollLeft;
+    root.scrollLeft=columnScroll;columnDepth=selected.depth;
+    positionTitle();positionActions();
+  }
+  function columnAt(clientX){
+    if(!root || !columnGeometry)return null;
+    const {edge,width,count}=columnGeometry;
+    const x=clientX-root.getBoundingClientRect().left+root.scrollLeft-edge;
+    return x<0 || x>=count*width?null:Math.floor(x/width);
+  }
+  function scrollColumn(depth,delta){
+    if(depth===null || !columnY.has(depth))return;
+    const h=root.clientHeight,limit=columnEnds.get(depth)||0;
+    columnY.set(depth,Math.max(h/2-limit,Math.min(h/2,columnY.get(depth)-delta)));
+    manual=true;queue();
   }
 
   function down(e) {
@@ -553,18 +663,43 @@ async function startGingko(extensionAPI) {
     if(box) active=box;
   }
   function release(){held=false;queue();}
+  function armDrag(e){
+    if(e.button!==0 || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || !root?.contains(e.target))return;
+    const handle=e.target.closest('.rm-bullet,.rm-block__bullet');
+    if(!handle)return;
+    const uid=blockUid(handle.closest(BOX));if(!uid)return;
+    dragCandidate={uid,box:handle.closest(BOX)};held=true;
+    root.setAttribute('data-lg-drag-armed','');
+    // Stop Roam's range-selection gesture, but retain the browser's native drag default.
+    e.stopImmediatePropagation();
+  }
+  function guardDragGesture(e){
+    if(!dragCandidate && !dragging)return;
+    if(e.type==='selectstart')e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+  function finishPointer(e){
+    if(dragCandidate && !dragging){
+      e.stopImmediatePropagation();dragCandidate=null;root?.removeAttribute('data-lg-drag-armed');
+    }
+    release();
+  }
   function dragStart(e){
     if(!root?.contains(e.target))return;
-    const handle=e.target.closest(".rm-bullet,.rm-block__bullet,.controls");
-    if(!handle)return;
-    moving=blockUid(handle.closest(BOX));
-    if(!moving)return;
-    dragging=true;e.stopImmediatePropagation();
-    e.dataTransfer.effectAllowed="move";
-    e.dataTransfer.setData("text/plain","(("+moving+"))");
+    const handle=e.target.closest('.rm-bullet,.rm-block__bullet');
+    const box=handle?.closest(BOX) || (dragCandidate && e.target.closest(BOX)===dragCandidate.box?dragCandidate.box:null);
+    if(!box)return;
+    moving=blockUid(box);if(!moving)return;
+    dragging=true;held=true;root.setAttribute('data-lg-drag-armed','');
+    e.stopImmediatePropagation();
+    // A real drag owns selection only inside this outline, never elsewhere on the page.
+    const selection=window.getSelection?.();
+    if(selection && root.contains(selection.anchorNode) && root.contains(selection.focusNode))selection.removeAllRanges();
+    if(e.dataTransfer){e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','(('+moving+'))');}
   }
   function dragEnd(){
-    if(dropRow)dropRow.removeAttribute("data-lg-drop");
+    if(dropRow)dropRow.removeAttribute('data-lg-drop');
+    root?.removeAttribute('data-lg-drag-armed');dragCandidate=null;
     dropRow=null;moving=null;dragging=false;release();
   }
   function focus(e){
@@ -578,22 +713,45 @@ async function startGingko(extensionAPI) {
     queue();
   }
   function wheel(e){
-    if(!root?.contains(e.target)) return;
-    if(!e.altKey){manual=true;return;}
-    manual=false;
+    if(!inBoard(e.target) || e.ctrlKey || popupOpen())return;
+    if(e.altKey){
+      e.preventDefault();manual=false;
+      zoom=Math.max(.6,Math.min(1.8,zoom+(e.deltaY<0?.1:-.1)));queue();return;
+    }
+    manual=true;
+    if(e.shiftKey || Math.abs(e.deltaX)>Math.abs(e.deltaY)){
+      e.preventDefault();root.scrollLeft+=(e.deltaX || e.deltaY)*(e.deltaMode===1?18:1);
+      columnScroll=root.scrollLeft;positionTitle();positionActions();return;
+    }
+    const depth=columnAt(e.clientX);
+    if(depth===null)return;
     e.preventDefault();
-    zoom=Math.max(.6,Math.min(1.8,zoom+(e.deltaY<0?.1:-.1)));queue();
+    const scale=e.deltaMode===1?18:e.deltaMode===2?root.clientHeight:1;
+    scrollColumn(depth,e.deltaY*scale);
+  }
+  function touchStart(e){
+    if(!inBoard(e.target) || e.touches.length!==1 || popupOpen()){touchPoint=null;return;}
+    const t=e.touches[0];touchPoint={x:t.clientX,y:t.clientY,depth:columnAt(t.clientX)};
+  }
+  function touchMove(e){
+    if(!touchPoint || e.touches.length!==1)return;
+    const t=e.touches[0],dx=touchPoint.x-t.clientX,dy=touchPoint.y-t.clientY;
+    held=false;
+    if(Math.abs(dx)>Math.abs(dy)){manual=true;root.scrollLeft+=dx;}
+    else scrollColumn(touchPoint.depth,dy);
+    if(e.cancelable)e.preventDefault();
+    touchPoint.x=t.clientX;touchPoint.y=t.clientY;
   }
   function selection(){if(inBoard(document.activeElement)&&document.activeElement.matches(EDIT))queue();}
   function clean() {
-    operationEpoch++;dragEnd();
+    operationEpoch++;dragEnd();columnY.clear();columnEnds.clear();columnGeometry=null;touchPoint=null;
     titleObserver?.disconnect();focusingUid=null;columnDepth=null;columnScroll=0;
     focusRequest++;childMemory.clear();
     observer?.disconnect();sizes?.disconnect();watched.clear();
     cancelAnimationFrame(frame);frame=0;
     for(const el of touched) {
-      for(const a of ["data-lg-board","data-lg-box","data-lg-row","data-lg-role","data-lg-pass","data-lg-sep","data-lg-group","data-lg-page"]) el.removeAttribute(a);
-      for(const v of ["--lg-x","--lg-y","--lg-width","--lg-end-x","--lg-end-y","--lg-paper","--lg-profile","--lg-title-x","--lg-title-y","--lg-title-clip"]) el.style.removeProperty(v);
+      for(const a of ["data-lg-board","data-lg-box","data-lg-row","data-lg-role","data-lg-pass","data-lg-sep","data-lg-group","data-lg-page","data-lg-depth"]) el.removeAttribute(a);
+      for(const v of ["--lg-x","--lg-y","--lg-width","--lg-end-x","--lg-end-y","--lg-paper","--lg-profile","--lg-title-x","--lg-title-y","--lg-title-clip","--lg-groups"]) el.style.removeProperty(v);
     }
     touched.clear();root=active=null;pageCard=null;pageUid=null;titlePosition=null;held=dragging=false;
     if(scroller?.isConnected) scroller.scrollTop=oldScroll;
@@ -780,6 +938,13 @@ async function startGingko(extensionAPI) {
     }catch(error){if(!error.cancelled)notice(error.message);}finally{busy=false;}
   }
 
+  function atVerticalBoundary(input,direction){
+    const css=getComputedStyle(input);
+    const line=parseFloat(css.lineHeight)||parseFloat(css.fontSize)*1.2||20;
+    const current=caretOffset(input,input,input.selectionStart);
+    const edge=caretOffset(input,input,direction==='ArrowUp'?0:input.value.length);
+    return Math.abs(current-edge)<line*.5;
+  }
   function navigate(e) {
     if(!inBoard(e.target)||e.defaultPrevented||e.isComposing||e.keyCode===229||
       e.shiftKey||e.ctrlKey||e.metaKey||e.altKey||popupOpen())return;
@@ -791,23 +956,32 @@ async function startGingko(extensionAPI) {
       if(input.selectionStart!==input.selectionEnd)return;
       if(e.key==="ArrowLeft" && input.selectionStart!==0)return;
       if(e.key==="ArrowRight" && input.selectionEnd!==input.value.length)return;
-    }else if(input.isContentEditable)return;
-    active=pageCard?.contains(input)?pageCard:input.closest(BOX)||active;
+      if(!horizontal && !atVerticalBoundary(input,e.key))return;
+    }else return; // Never intercept controls, links or an unfocused card.
+    const source=pageCard?.contains(input)?pageCard:input.closest(BOX);
+    const uid=blockUid(source);
+    if(!uid)return;
+    active=source;
     e.preventDefault();e.stopImmediatePropagation();
-    void moveSelection(e.key);
+    // Holding Right on an empty leaf must not create a chain of empty descendants.
+    if((horizontal && e.repeat) || busy)return;
+    void moveSelection(e.key,uid);
   }
-  async function moveSelection(direction) {
-    const uid=blockUid(active);if(disposed || !uid || busy || !root)return;
+  async function moveSelection(direction, uid=blockUid(active)) {
+    if(disposed || !uid || busy || !root)return;
     const live=operationGuard();
     const row=readBlock(uid),owner=ownerOf(row);
+    if(!row)return;
     if(uid===pageUid && direction!=="ArrowRight")return;
     const children=[...(row?.[":block/children"]||[])].sort((a,b)=>a[":block/order"]-b[":block/order"]);
     let next;
     if(direction==="ArrowLeft")next=owner;
     else if(direction==="ArrowRight")next=(children.find(n=>n[":block/uid"]===childMemory.get(uid))||children[0])?.[":block/uid"];
     else {
+      if(!owner)return;
       const siblings=[...(readBlock(owner)?.[":block/children"]||[])].sort((a,b)=>a[":block/order"]-b[":block/order"]);
       const index=siblings.findIndex(n=>n[":block/uid"]===uid);
+      if(index<0)return;
       next=siblings[index+(direction==="ArrowUp"?-1:1)]?.[":block/uid"];
     }
     // Stop native up/down from escaping the sibling group.
@@ -823,7 +997,7 @@ async function startGingko(extensionAPI) {
           }
           if(uid!==pageUid)await writeBlock("update",{block:{uid,open:true}},live);
         }
-        await focusUid(next,direction==="ArrowLeft"?(readBlock(next)?.[":block/string"]||"").length:0);
+        await focusUid(next,(direction==="ArrowLeft"||direction==="ArrowUp")?(readBlock(next)?.[":block/string"]||"").length:0);
       }catch(error){if(!error.cancelled)notice(error.message);}finally{busy=false;}
   }
   function shortcut(e){
@@ -855,15 +1029,20 @@ async function startGingko(extensionAPI) {
   };
   panel.addEventListener("close",positionActions);
   const listeners=[
-    [document,"pointerdown",down,true],[window,"pointerup",release,true],
-    [window,"pointercancel",release,true],[document,"dragstart",dragStart,true],
+    [window,"pointerdown",armDrag,true],[document,"pointerdown",down,true],[window,"pointerup",finishPointer,true],
+    [window,"mousedown",guardDragGesture,true],[window,"mousemove",guardDragGesture,true],
+    [window,"pointermove",guardDragGesture,true],[window,"selectstart",guardDragGesture,true],
+    [window,"pointercancel",finishPointer,true],[window,"dragstart",dragStart,true],
     [window,"dragend",dragEnd,true],[window,"drop",dropBranch,true],[window,"blur",dragEnd],
     [document,"focusin",focus,true],[document,"input",selection,true],
     [document,"selectionchange",selection],[window,"resize",queue],
     [document,"wheel",wheel,{passive:false}],
-    [document,"touchmove",e=>{if(root?.contains(e.target))manual=true;},true],
+    [document,"touchstart",touchStart,{passive:true}],
+    [document,"touchmove",touchMove,{passive:false}],
+    [document,"touchend",()=>{touchPoint=null;}],
+    [document,"touchcancel",()=>{touchPoint=null;}],
     [document,"input",e=>{if(root?.contains(e.target)){manual=false;queue();}},true],
-    [document,"keydown",shortcut,true],[document,"keydown",enterSibling,true],[document,"keydown",navigate,true],[document,"dragover",dragOver,true],[document,"scroll",()=>{if(root && manual)columnScroll=root.scrollLeft;positionTitle();positionActions();},true]
+    [document,"keydown",shortcut,true],[document,"keydown",enterSibling,true],[window,"keydown",navigate,true],[document,"dragover",dragOver,true],[document,"scroll",()=>{if(root && manual)columnScroll=root.scrollLeft;else if(root && Math.abs(root.scrollLeft-columnScroll)>1)root.scrollLeft=columnScroll;positionTitle();positionActions();},true]
   ];
   for(const [el,type,fn,opt] of listeners)el.addEventListener(type,fn,opt);
   const chrome=new MutationObserver(()=>{
@@ -917,6 +1096,7 @@ async function startGingko(extensionAPI) {
     }
     await pending;if(session)await close();
     clean();panel.remove();actions.remove();
+    document.documentElement.style.removeProperty('--lg-texture');
     document.documentElement.style.removeProperty("--gc-margin");
     document.documentElement.style.removeProperty("--gc-dim");
     document.documentElement.style.removeProperty("--gc-focus-tint");

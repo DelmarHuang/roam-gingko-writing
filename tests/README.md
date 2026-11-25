@@ -4,11 +4,12 @@
 
 - First-column title centering, returning from other columns, viewport resizing, manual browsing, pointer/focus handling, sibling horizontal stability and branch separation.
 - Cancellation of follow-up writes after unload, view exit and re-entry; native Enter creates a sibling only after the native text is saved, without overwriting existing block text.
+- Keyboard boundaries, selection/IME/modifier exclusions, held-arrow prevention, parent-child ownership and sibling edges.
 - Load/unload/reload, command removal, native preference writes, listener and DOM cleanup.
 
 `npm run test:browser` runs an optional Playwright/Chromium fixture using the complete shipped CSS and JavaScript. Install Playwright and Chromium first. It does not connect to a real graph.
 
-The dependency-free checks passed for 1.0.3. The optional Chromium test could not run in the release workspace because Chromium was unavailable and the browser download was blocked; it is not counted as passed. Live Roam inspection confirmed the previous title-position bug, but the new build still needs live-user verification.
+The dependency-free checks passed for 1.1.3, including independent column scrolling, tall-group alignment, shared surfaces, flush parent-child surfaces and unrelated branch separation. The optional Chromium test could not run in the release workspace because Chromium was unavailable and the browser download was blocked; it is not counted as passed. The author confirmed the visual layout and interactions in a live Roam graph before publication.
 
 # Prior Depot review concerns checked
 

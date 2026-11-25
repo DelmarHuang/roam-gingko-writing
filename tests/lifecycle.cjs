@@ -16,7 +16,7 @@ const ctx={document:doc,window:win,localStorage:{getItem:()=>null,setItem(){}},M
 vm.createContext(ctx);vm.runInContext(source,ctx);
 (async()=>{
  await ctx.plugin.onload({extensionAPI:ext});assert.equal(commands.size,2);assert.ok(listeners>0);const bodyCount=doc.body.children.length;
- const panel=doc.body.children.find(x=>x.id==='gc-settings');assert.ok(panel.innerHTML.includes('min="0.02"'));assert.ok(panel.innerHTML.includes('focusTint'));
+ const panel=doc.body.children.find(x=>x.id==='gc-settings');assert.ok(panel.innerHTML.includes('min="0.02"'));assert.ok(panel.innerHTML.includes('texture'));
  panel.oninput({target:{name:'dim',type:'range',value:'.02'}});
  await ctx.plugin.onunload();assert.equal(writes.at(-1)[1].dim,.02);assert.equal(commands.size,0);assert.equal(doc.body.children.length,0);assert.equal(doc.head.children.length,0);assert.equal(listeners,0);assert.equal(win.__roamGingkoFocus,undefined);
  await ctx.plugin.onload({extensionAPI:ext});await ctx.plugin.onload({extensionAPI:ext});assert.equal(doc.body.children.length,bodyCount);assert.equal(commands.size,2);await ctx.plugin.onunload();assert.equal(listeners,0);console.log('PASS full plugin load/unload/reload; two commands; native settings write; DOM/listener cleanup');
