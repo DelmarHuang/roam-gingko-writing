@@ -1,12 +1,12 @@
 # Gingko Writing
 
-Version 1.1.8 · Roam Research plugin
+Version 1.1.9 · Roam Research plugin
 
 Gingko Writing turns the main Roam outline into a horizontal writing workspace. The page title appears in the first column; top-level blocks sit to its right, followed by their children. Block editing stays in Roam's own editor.
 
 ## See the difference
 
-The same page and custom theme, before and after enabling Gingko Writing. The page text in the screenshots contains an older version label; the plugin version is 1.1.8.
+The same page and custom theme, before and after enabling Gingko Writing. The page text in the screenshots contains an older version label; the plugin version is 1.1.9.
 
 **Before — standard Roam outline**
 
@@ -163,6 +163,8 @@ MIT licensed. See [LICENSE](LICENSE).
 
 While Gingko Writing is active, content-width safeguards apply with every theme, including when Folio is disabled. Text, links, tags, highlighted content and media fit the column; queries, tables, code and kanban boards can scroll within their card. Native child blocks retain their horizontal outline layout. Folio page-margin asides use Gingko column positions during this mode. Leaving Gingko removes these overrides. Disabling Folio only removes Folio-specific aside positioning; native width safeguards remain active. No Folio settings are changed.
 
-The 1.1.8 compatibility changes pass automated regression checks; visual verification in a live Folio graph is still pending.
+The 1.1.9 compatibility changes pass automated regression checks; visual verification in a live Folio graph is still pending.
 
 Zen exit does not send Escape or call a fullscreen API. If the theme obscures Roam’s Zen state, Gingko pairs its session entry command with one exit command. Native macOS fullscreen behavior requires verification in the desktop app.
+
+Folio property-card plates, fixed attribute columns, margin-note placement and video-row stickiness yield to Gingko’s layout while active. Native labels, links, bullets and widget contents remain in place. See [Folio compatibility audit](docs/folio-compatibility.md) for scope and validation limits.

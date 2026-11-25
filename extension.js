@@ -112,12 +112,13 @@ async function startGingko(extensionAPI) {
       isolation:isolate;z-index:4;background:var(--lg-paper)!important}
     [data-lg-board]::after{content:"";position:absolute;pointer-events:none;
       left:var(--lg-end-x);top:var(--lg-end-y);width:1px;height:1px}
-    [data-lg-pass]{position:static!important;transform:none!important;contain:none!important;
+    html body :is(#lg-layout-pass,[data-lg-pass]){position:static!important;transform:none!important;contain:none!important;
       overflow:visible!important;margin:0!important;padding:0!important;border:0!important}
-    [data-lg-box]{position:absolute!important;left:var(--lg-x)!important;top:var(--lg-y)!important;
+    html body :is(#lg-layout-box,[data-lg-box]){position:absolute!important;left:var(--lg-x)!important;top:var(--lg-y)!important;
       width:var(--lg-width)!important;min-width:0!important;max-width:none!important;
       height:auto!important;min-height:0!important;transform:none!important;contain:none!important;
-      overflow:visible!important;margin:0!important;padding:0!important;border:0!important;box-sizing:border-box}
+      overflow:visible!important;margin:0!important;padding:0!important;border:0!important;box-sizing:border-box;
+      background:transparent!important;box-shadow:none!important;isolation:auto!important;right:auto!important;bottom:auto!important}
     [data-lg-board]::before{content:"";position:absolute;inset:0 auto auto 0;pointer-events:none;z-index:-1;
       width:var(--lg-end-x);height:var(--lg-end-y);background:currentColor;opacity:.035;clip-path:var(--lg-profile)}
     [data-lg-sep]{position:absolute!important;left:var(--lg-x)!important;top:var(--lg-y)!important;width:var(--lg-width)!important}
@@ -243,6 +244,7 @@ async function startGingko(extensionAPI) {
     [data-lg-board]::before{clip-path:none!important;opacity:1!important;z-index:-1;
       background:var(--lg-groups) no-repeat 0 0!important;width:var(--lg-end-x);height:var(--lg-end-y)}
     html body :is(#gingko-group-override,[data-lg-row]){
+      position:relative!important;inset:auto!important;z-index:auto!important;transform:none!important;flex-direction:row!important;
       opacity:1!important;border:0!important;outline:0!important;box-shadow:none!important;
       border-radius:0!important;background:transparent!important;padding:15px 18px!important;
       transition:background-color 130ms ease!important}
@@ -260,6 +262,30 @@ async function startGingko(extensionAPI) {
     html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=up]{box-shadow:inset 0 3px currentColor!important}
     html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=down]{box-shadow:inset 0 -3px currentColor!important}
     html body :is(#gingko-group-override,[data-lg-row])[data-lg-drop=right]{box-shadow:inset -3px 0 currentColor!important}
+  `;
+  style.textContent += `
+    /* Folio property plates and their synthetic fold control belong to vertical
+       page layout. Native bullets and labels remain in the original DOM. */
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-props]::before,
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-props]::after{
+      content:none!important;display:none!important;pointer-events:none!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-props] > [data-lg-row] .rm-page-ref--tag{
+      font-size:inherit!important;letter-spacing:normal!important;text-transform:none!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-props] > [data-lg-row] .rm-page-ref--tag::before,
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-props] > [data-lg-row] .rm-page-ref--tag::after{
+      content:none!important;display:none!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-attr] > [data-lg-row] > .rm-block__input--view{
+      padding-left:0!important;border-bottom:0!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-attr] > [data-lg-row] .rm-attr-ref{
+      position:static!important;inset:auto!important;width:auto!important;max-width:100%!important;
+      white-space:normal!important;overflow-wrap:anywhere!important;font-size:inherit!important;
+      line-height:inherit!important;letter-spacing:normal!important;text-transform:none!important;pointer-events:auto!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-aside] > [data-lg-row] > .controls{
+      flex-direction:row!important;flex:0 0 40px!important;width:40px!important;min-width:40px!important;max-width:40px!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-aside] > [data-lg-row] > .controls .block-expand{
+      display:flex!important}
+    html body :is(#lg-property-override,[data-lg-box])[data-mag-aside] > [data-lg-row] > :is(.rm-block__input,.rm-autocomplete__wrapper){
+      text-align:start!important;background:none!important}
   `;
   style.textContent += `
     [data-lg-board]{background-image:none!important}
@@ -828,6 +854,11 @@ async function startGingko(extensionAPI) {
     touchPoint.x=t.clientX;touchPoint.y=t.clientY;
   }
   function selection(){if(inBoard(document.activeElement)&&document.activeElement.matches(EDIT))queue();}
+  function propertyPlateClick(e){
+    // Folio's document capture listener computes a corner hit zone even when
+    // its ::after arrow is hidden. Stop only clicks on the now-empty plate.
+    if(root?.contains(e.target) && e.target.matches?.('[data-lg-box][data-mag-props]'))e.stopImmediatePropagation();
+  }
   function clean() {
     operationEpoch++;dragEnd();columnY.clear();columnEnds.clear();columnGeometry=null;touchPoint=null;
     titleObserver?.disconnect();focusingUid=null;columnDepth=null;columnScroll=0;
@@ -1115,6 +1146,7 @@ async function startGingko(extensionAPI) {
   };
   panel.addEventListener("close",positionActions);
   const listeners=[
+    [window,"click",propertyPlateClick,true],
     [document,"folio:appearance-change",syncFolio],
     [window,"pointerdown",armDrag,true],[document,"pointerdown",down,true],[window,"pointerup",finishPointer,true],
     [window,"mousedown",guardDragGesture,true],[window,"mousemove",guardDragGesture,true],

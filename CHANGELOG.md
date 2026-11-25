@@ -1,3 +1,11 @@
+# 1.1.9
+
+- Remove Folio property-card plate, top rule and synthetic fold arrow within Gingko; restore actual tag text and ordinary inline attribute layout.
+- Prevent the hidden Folio property-arrow hit zone from folding a block; native text, links and bullets retain their handlers.
+- Give Gingko-owned block positions and wrapper spacing precedence over theme rules.
+- Disable row stickiness and margin-note reversal while active; restore native expansion controls on aside rows.
+- Include a complete Folio theme/feature inventory with explicit source-review versus runtime-test scope.
+
 # 1.1.8
 
 - Fix the 1.1.6–1.1.7 exit regression when themes obscure native Zen state: pair a dispatched entry command with one exit command instead of aborting with an unknown-state notice.

@@ -35,3 +35,15 @@ assert.ok(src.includes('width:max-content!important;min-width:100%!important;max
 console.log('PASS observed full-width host, table footer and kanban scroll-container rule coverage');
 
 assert.ok(!src.includes('[data-lg-board][data-lg-folio]) [data-lg-row]'), 'basic width rules must not depend on Folio');
+
+vm.runInContext(src.slice(src.indexOf('  function propertyPlateClick(e)'),src.indexOf('  function clean()')),ctx);
+let stopped=0;
+ctx.propertyPlateClick({target:{matches:()=>true},stopImmediatePropagation(){stopped++}});
+assert.equal(stopped,1,'hidden property fold hit zone cannot act');
+ctx.propertyPlateClick({target:{matches:()=>false},stopImmediatePropagation(){stopped++}});
+assert.equal(stopped,1,'native text/link/bullet targets retain their events');
+ctx.root=null;ctx.propertyPlateClick({target:{matches:()=>true},stopImmediatePropagation(){stopped++}});
+assert.equal(stopped,1,'Folio behavior restored outside Gingko');
+assert.ok(src.includes(':is(#lg-layout-box,[data-lg-box]){position:absolute!important'));
+assert.ok(src.includes('[data-lg-box])[data-mag-props]::before'));
+console.log('PASS property plate event isolation, native target preservation and layout override coverage');

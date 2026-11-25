@@ -1,6 +1,6 @@
 {
   "name": "roam-gingko-writing",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "type": "module",
   "private": true,
   "description": "Theme-adaptive horizontal writing view for Roam Research",
